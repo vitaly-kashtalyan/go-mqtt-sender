@@ -1,0 +1,12 @@
+version: '3'
+services:
+  app:
+    build:
+      context: .
+    restart: always
+    container_name: go_mqtt_sender_app
+    environment:
+      MQTT_HOST: localhost
+      MQTT_PORT: 1883
+    ports:
+      - 8080:8080
