@@ -14,6 +14,8 @@ const (
 	MqttPort = "MQTT_PORT"
 )
 
+var client mqtt.Client
+
 func main() {
 	// Echo instance
 	e := echo.New()
@@ -72,17 +74,35 @@ func prepareMessage(c echo.Context) (msg Message, err error) {
 }
 
 func publish(message Message) error {
-	opts := mqtt.NewClientOptions()
-	opts.AddBroker(fmt.Sprintf("tcp://%s:%s", getBrokerHost(), getBrokerPort()))
-	client := mqtt.NewClient(opts)
-	if token := client.Connect(); token.Wait() && token.Error() != nil {
+	c, err := getClient()
+	if err != nil {
+		return err
+	}
+	token := c.Publish(message.Topic, message.Qos, message.Retained, message.Payload)
+	token.Wait()
+	return token.Error()
+}
+
+func getClient() (mqtt.Client, error) {
+	if client == nil || !client.IsConnected() {
+		err := connect()
+		if err != nil {
+			return nil, err
+		}
+	}
+	return client, nil
+}
+
+func connect() error {
+	options := mqtt.NewClientOptions()
+	options.AddBroker(fmt.Sprintf("tcp://%s:%s", getBrokerHost(), getBrokerPort()))
+	options.SetAutoReconnect(true)
+	newClient := mqtt.NewClient(options)
+	if token := newClient.Connect(); token.Wait() && token.Error() != nil {
 		return token.Error()
 	}
-
-	token := client.Publish(message.Topic, message.Qos, message.Retained, message.Payload)
-	token.Wait()
-
-	return token.Error()
+	client = newClient
+	return nil
 }
 
 func getBrokerHost() string {
